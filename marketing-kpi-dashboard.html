@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- skill:chrome -->
+<style>
+/* Credit line — bottom-right */
+.design-ui-credit {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font: 11px/1 system-ui, sans-serif;
+  color: rgba(128,128,128,0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: opacity 0.4s ease;
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+
+/* Hide chrome on touch devices */
+@media (hover: none) {
+  .design-ui-credit { display: none; }
+}
+
+/* Print fixes */
+@media print {
+  * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .design-ui-credit { display: none !important; }
+}
+
+</style>
+<script>
+(function () {
+    // Design-ui pages are single compositions, so the whole body is editable.
+    function markEditable() {
+        document.body.classList.add('artifact-editable');
+    }
+
+    // Credit badge with idle-fade. Hover devices only.
+    function initChromeUI() {
+        if (!matchMedia('(hover: hover)').matches) return;
+
+        var credit = document.createElement('div');
+        credit.className = 'design-ui-credit';
+        credit.setAttribute('aria-hidden', 'true');
+        credit.innerHTML = '\u{1F49C} by ClickUp Brain';
+        document.body.appendChild(credit);
+
+        var timer = null;
+        var fade = function (out) { credit.style.opacity = out ? '0' : ''; };
+        fade(true);
+        var show = function () {
+            fade(false);
+            clearTimeout(timer);
+            timer = setTimeout(function () { fade(true); }, 3000);
+        };
+        document.addEventListener('mousemove', show);
+        show();
+    }
+
+    function init() {
+        markEditable();
+        initChromeUI();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+
+</script>
+<!-- /skill:chrome -->
+<!-- skill:libraries -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
+<!-- /skill:libraries -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATLEX Marketing KPI Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --base: 4px;
+    --primary: oklch(45% 0.12 160);
+    --primary-light: oklch(92% 0.03 160);
+    --primary-mid: oklch(65% 0.08 160);
+    --neutral-950: oklch(12% 0.008 160);
+    --neutral-800: oklch(25% 0.006 160);
+    --neutral-700: oklch(35% 0.005 160);
+    --neutral-600: oklch(45% 0.005 160);
+    --neutral-400: oklch(65% 0.005 160);
+    --neutral-200: oklch(88% 0.005 160);
+    --neutral-100: oklch(94% 0.004 160);
+    --neutral-50: oklch(97.5% 0.003 160);
+    --surface: oklch(99% 0.002 160);
+    --meta-color: oklch(55% 0.18 260);
+    --meta-light: oklch(94% 0.04 260);
+    --google-color: oklch(55% 0.18 140);
+    --google-light: oklch(94% 0.04 140);
+    --up: oklch(50% 0.14 155);
+    --down: oklch(55% 0.16 25);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--neutral-800);
+    font-size: 14px;
+    line-height: 1.5;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .dashboard {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: calc(var(--base) * 8) calc(var(--base) * 6);
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: calc(var(--base) * 10);
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--neutral-950);
+    letter-spacing: -0.02em;
+  }
+
+  .date-range {
+    font-size: 0.8rem;
+    color: var(--neutral-600);
+    font-weight: 500;
+    background: var(--neutral-100);
+    padding: calc(var(--base) * 1.5) calc(var(--base) * 3);
+    border-radius: calc(var(--base) * 1.5);
+  }
+
+  /* Platform Summary */
+  .platform-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: calc(var(--base) * 6);
+    margin-bottom: calc(var(--base) * 12);
+  }
+
+  .platform-block {
+    padding: calc(var(--base) * 6) calc(var(--base) * 7);
+    border-radius: calc(var(--base) * 3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .platform-block::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .platform-block.meta {
+    background: var(--meta-light);
+  }
+  .platform-block.meta::before {
+    background: var(--meta-color);
+  }
+
+  .platform-block.google {
+    background: var(--google-light);
+  }
+  .platform-block.google::before {
+    background: var(--google-color);
+  }
+
+  .platform-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: calc(var(--base) * 4);
+  }
+
+  .platform-block.meta .platform-label { color: var(--meta-color); }
+  .platform-block.google .platform-label { color: var(--google-color); }
+
+  .platform-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: calc(var(--base) * 4);
+  }
+
+  .metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--base) * 1);
+  }
+
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--neutral-950);
+    font-feature-settings: 'tnum';
+  }
+
+  .metric-label {
+    font-size: 0.7rem;
+    color: var(--neutral-600);
+    font-weight: 500;
+  }
+
+  .metric-change {
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-change.up { color: var(--up); }
+  .metric-change.down { color: var(--down); }
+
+  /* Comparison Table */
+  .section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--neutral-950);
+    margin-bottom: calc(var(--base) * 5);
+  }
+
+  .comparison-section {
+    margin-bottom: calc(var(--base) * 12);
+  }
+
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-feature-settings: 'tnum';
+  }
+
+  .comparison-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--neutral-400);
+    padding: calc(var(--base) * 2) calc(var(--base) * 3);
+    border-bottom: 1px solid var(--neutral-200);
+  }
+
+  .comparison-table th:not(:first-child) {
+    text-align: right;
+  }
+
+  .comparison-table td {
+    padding: calc(var(--base) * 3) calc(var(--base) * 3);
+    border-bottom: 1px solid var(--neutral-100);
+    font-size: 0.85rem;
+  }
+
+  .comparison-table td:not(:first-child) {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  .comparison-table tr:hover td {
+    background: var(--neutral-50);
+  }
+
+  .comparison-table .campaign-name {
+    font-weight: 500;
+    color: var(--neutral-950);
+  }
+
+  .platform-tag {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .platform-tag.meta {
+    background: oklch(90% 0.06 260);
+    color: var(--meta-color);
+  }
+
+  .platform-tag.google {
+    background: oklch(90% 0.06 140);
+    color: var(--google-color);
+  }
+
+  /* Charts Section */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: calc(var(--base) * 6);
+    margin-bottom: calc(var(--base) * 12);
+  }
+
+  .chart-container {
+    background: var(--neutral-50);
+    border-radius: calc(var(--base) * 3);
+    padding: calc(var(--base) * 6);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: calc(var(--base) * 5);
+  }
+
+  .chart-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--neutral-950);
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: calc(var(--base) * 4);
+    font-size: 0.7rem;
+    color: var(--neutral-600);
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .legend-dot.meta { background: var(--meta-color); }
+  .legend-dot.google { background: var(--google-color); }
+
+  canvas {
+    width: 100% !important;
+    height: 200px !important;
+  }
+
+  /* Funnel */
+  .funnel-section {
+    margin-bottom: calc(var(--base) * 12);
+  }
+
+  .funnel {
+    display: flex;
+    align-items: stretch;
+    gap: calc(var(--base) * 1);
+    height: 100px;
+  }
+
+  .funnel-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(var(--base) * 2);
+    position: relative;
+    transition: transform 200ms var(--ease-out-expo);
+  }
+
+  .funnel-stage:hover {
+    transform: scale(1.02);
+  }
+
+  .funnel-stage:nth-child(1) { background: oklch(88% 0.06 160); }
+  .funnel-stage:nth-child(2) { background: oklch(82% 0.08 160); }
+  .funnel-stage:nth-child(3) { background: oklch(72% 0.1 160); }
+  .funnel-stage:nth-child(4) { background: var(--primary); color: white; }
+
+  .funnel-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .funnel-stage:nth-child(4) .funnel-value { color: white; }
+
+  .funnel-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    margin-top: 4px;
+    opacity: 0.8;
+  }
+
+  .funnel-rate {
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--primary);
+    z-index: 1;
+    background: var(--surface);
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+
+  /* Bottom Grid */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: calc(var(--base) * 6);
+  }
+
+  .insights-block {
+    background: var(--neutral-50);
+    border-radius: calc(var(--base) * 3);
+    padding: calc(var(--base) * 6);
+  }
+
+  .insight-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: calc(var(--base) * 3) 0;
+    border-bottom: 1px solid var(--neutral-100);
+  }
+
+  .insight-row:last-child {
+    border-bottom: none;
+  }
+
+  .insight-label {
+    font-size: 0.8rem;
+    color: var(--neutral-700);
+  }
+
+  .insight-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--neutral-950);
+  }
+
+  .bar-wrapper {
+    flex: 1;
+    margin: 0 calc(var(--base) * 4);
+    height: 6px;
+    background: var(--neutral-200);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 600ms var(--ease-out-expo);
+  }
+
+  .bar-fill.meta { background: var(--meta-color); }
+  .bar-fill.google { background: var(--google-color); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .platform-summary { grid-template-columns: 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .platform-metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    .dashboard { padding: calc(var(--base) * 4); }
+    header { flex-direction: column; gap: calc(var(--base) * 2); }
+    .funnel { flex-direction: column; height: auto; gap: calc(var(--base) * 2); }
+    .funnel-stage { padding: calc(var(--base) * 3); }
+    .funnel-rate { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <header>
+    <h1>Marketing KPI Dashboard</h1>
+    <span class="date-range">Jul 1 – Jul 23, 2026</span>
+  </header>
+
+  <!-- Platform Summary -->
+  <div class="platform-summary">
+    <div class="platform-block meta">
+      <div class="platform-label">Meta / Facebook Ads</div>
+      <div class="platform-metrics">
+        <div class="metric-item">
+          <span class="metric-value">₱48.2K</span>
+          <span class="metric-label">Spend</span>
+          <span class="metric-change up">↑ 12% vs prev</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">312K</span>
+          <span class="metric-label">Reach</span>
+          <span class="metric-change up">↑ 8.4%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">4,891</span>
+          <span class="metric-label">Clicks</span>
+          <span class="metric-change up">↑ 15%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">₱78</span>
+          <span class="metric-label">CPL</span>
+          <span class="metric-change down">↑ 5% (worse)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="platform-block google">
+      <div class="platform-label">Google Ads</div>
+      <div class="platform-metrics">
+        <div class="metric-item">
+          <span class="metric-value">₱36.7K</span>
+          <span class="metric-label">Spend</span>
+          <span class="metric-change down">↓ 3% vs prev</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">89.4K</span>
+          <span class="metric-label">Impressions</span>
+          <span class="metric-change up">↑ 22%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">2,347</span>
+          <span class="metric-label">Clicks</span>
+          <span class="metric-change up">↑ 18%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value">₱124</span>
+          <span class="metric-label">CPL</span>
+          <span class="metric-change up">↓ 11% (better)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Funnel -->
+  <div class="funnel-section">
+    <div class="section-title">Combined Funnel (All Platforms)</div>
+    <div class="funnel">
+      <div class="funnel-stage">
+        <span class="funnel-value">401K</span>
+        <span class="funnel-label">Impressions</span>
+        <span class="funnel-rate">1.8%</span>
+      </div>
+      <div class="funnel-stage">
+        <span class="funnel-value">7,238</span>
+        <span class="funnel-label">Clicks</span>
+        <span class="funnel-rate">12.4%</span>
+      </div>
+      <div class="funnel-stage">
+        <span class="funnel-value">897</span>
+        <span class="funnel-label">Leads</span>
+        <span class="funnel-rate">9.6%</span>
+      </div>
+      <div class="funnel-stage">
+        <span class="funnel-value">86</span>
+        <span class="funnel-label">Conversions</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-container">
+      <div class="chart-header">
+        <span class="chart-title">Daily Spend Trend</span>
+        <div class="chart-legend">
+          <span><span class="legend-dot meta"></span>Meta</span>
+          <span><span class="legend-dot google"></span>Google</span>
+        </div>
+      </div>
+      <canvas id="spendChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">
+        <span class="chart-title">Leads by Platform</span>
+      </div>
+      <canvas id="leadsChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Campaign Table -->
+  <div class="comparison-section">
+    <div class="section-title">Top Campaigns This Period</div>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Campaign</th>
+          <th>Spend</th>
+          <th>Clicks</th>
+          <th>CTR</th>
+          <th>Leads</th>
+          <th>CPL</th>
+          <th>Conv. Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="campaign-name">Expansion Joint Awareness</span><span class="platform-tag meta">META</span></td>
+          <td>₱18,400</td>
+          <td>2,104</td>
+          <td>3.2%</td>
+          <td>264</td>
+          <td>₱70</td>
+          <td>12.5%</td>
+        </tr>
+        <tr>
+          <td><span class="campaign-name">Bridge Bearing Search</span><span class="platform-tag google">GOOGLE</span></td>
+          <td>₱14,200</td>
+          <td>1,089</td>
+          <td>5.8%</td>
+          <td>142</td>
+          <td>₱100</td>
+          <td>13.0%</td>
+        </tr>
+        <tr>
+          <td><span class="campaign-name">Waterstop Retargeting</span><span class="platform-tag meta">META</span></td>
+          <td>₱12,600</td>
+          <td>1,432</td>
+          <td>4.1%</td>
+          <td>198</td>
+          <td>₱64</td>
+          <td>13.8%</td>
+        </tr>
+        <tr>
+          <td><span class="campaign-name">Rubber Sheet Brand</span><span class="platform-tag google">GOOGLE</span></td>
+          <td>₱11,800</td>
+          <td>876</td>
+          <td>4.4%</td>
+          <td>96</td>
+          <td>₱123</td>
+          <td>11.0%</td>
+        </tr>
+        <tr>
+          <td><span class="campaign-name">Construction Supplies Video</span><span class="platform-tag meta">META</span></td>
+          <td>₱9,200</td>
+          <td>1,355</td>
+          <td>2.8%</td>
+          <td>156</td>
+          <td>₱59</td>
+          <td>11.5%</td>
+        </tr>
+        <tr>
+          <td><span class="campaign-name">Loading Dock Bumper</span><span class="platform-tag google">GOOGLE</span></td>
+          <td>₱8,700</td>
+          <td>382</td>
+          <td>6.1%</td>
+          <td>41</td>
+          <td>₱212</td>
+          <td>10.7%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Bottom -->
+  <div class="bottom-grid">
+    <div class="insights-block">
+      <div class="section-title" style="margin-bottom: 12px;">Budget Utilization</div>
+      <div class="insight-row">
+        <span class="insight-label">Meta Ads</span>
+        <div class="bar-wrapper"><div class="bar-fill meta" style="width: 72%"></div></div>
+        <span class="insight-value">72%</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Google Search</span>
+        <div class="bar-wrapper"><div class="bar-fill google" style="width: 61%"></div></div>
+        <span class="insight-value">61%</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Google Display</span>
+        <div class="bar-wrapper"><div class="bar-fill google" style="width: 45%"></div></div>
+        <span class="insight-value">45%</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Retargeting Pool</span>
+        <div class="bar-wrapper"><div class="bar-fill meta" style="width: 88%"></div></div>
+        <span class="insight-value">88%</span>
+      </div>
+    </div>
+
+    <div class="insights-block">
+      <div class="section-title" style="margin-bottom: 12px;">Platform Comparison</div>
+      <div class="insight-row">
+        <span class="insight-label">Avg. CTR</span>
+        <span class="insight-value" style="color: var(--meta-color);">3.2%</span>
+        <span class="insight-value" style="color: var(--google-color);">5.1%</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Avg. CPC</span>
+        <span class="insight-value" style="color: var(--meta-color);">₱9.85</span>
+        <span class="insight-value" style="color: var(--google-color);">₱15.63</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Cost per Lead</span>
+        <span class="insight-value" style="color: var(--meta-color);">₱78</span>
+        <span class="insight-value" style="color: var(--google-color);">₱124</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Lead Quality Score</span>
+        <span class="insight-value" style="color: var(--meta-color);">6.4/10</span>
+        <span class="insight-value" style="color: var(--google-color);">8.1/10</span>
+      </div>
+      <div class="insight-row">
+        <span class="insight-label">Total Leads</span>
+        <span class="insight-value" style="color: var(--meta-color);">618</span>
+        <span class="insight-value" style="color: var(--google-color);">279</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Spend Trend Chart
+const spendCtx = document.getElementById('spendChart').getContext('2d');
+const days = Array.from({length: 23}, (_, i) => `Jul ${i + 1}`);
+
+const metaSpend = [1800, 2100, 2400, 1900, 2200, 2600, 2100, 1700, 2300, 2500, 2800, 2200, 1900, 2400, 2700, 2100, 2300, 2600, 2000, 2400, 2200, 2500, 2300];
+const googleSpend = [1400, 1600, 1800, 1500, 1700, 1400, 1600, 1900, 1500, 1700, 1800, 1600, 1400, 1700, 1500, 1800, 1600, 1400, 1700, 1900, 1600, 1500, 1700];
+
+new Chart(spendCtx, {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      {
+        label: 'Meta',
+        data: metaSpend,
+        borderColor: 'oklch(55% 0.18 260)',
+        backgroundColor: 'oklch(55% 0.18 260 / 0.08)',
+        fill: true,
+        tension: 0.35,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      },
+      {
+        label: 'Google',
+        data: googleSpend,
+        borderColor: 'oklch(55% 0.18 140)',
+        backgroundColor: 'oklch(55% 0.18 140 / 0.08)',
+        fill: true,
+        tension: 0.35,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10 }, maxTicksLimit: 8, color: '#888' },
+        border: { display: false }
+      },
+      y: {
+        grid: { color: 'oklch(90% 0.005 160)' },
+        ticks: { font: { size: 10 }, color: '#888', callback: v => '₱' + (v/1000).toFixed(1) + 'K' },
+        border: { display: false }
+      }
+    }
+  }
+});
+
+// Leads Chart
+const leadsCtx = document.getElementById('leadsChart').getContext('2d');
+const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4 (partial)'];
+
+new Chart(leadsCtx, {
+  type: 'bar',
+  data: {
+    labels: weeks,
+    datasets: [
+      {
+        label: 'Meta',
+        data: [156, 178, 164, 120],
+        backgroundColor: 'oklch(55% 0.18 260 / 0.75)',
+        borderRadius: 4,
+        barPercentage: 0.7,
+      },
+      {
+        label: 'Google',
+        data: [62, 78, 84, 55],
+        backgroundColor: 'oklch(55% 0.18 140 / 0.75)',
+        borderRadius: 4,
+        barPercentage: 0.7,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: { font: { size: 10 }, boxWidth: 10, padding: 12 }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10 }, color: '#888' },
+        border: { display: false }
+      },
+      y: {
+        grid: { color: 'oklch(90% 0.005 160)' },
+        ticks: { font: { size: 10 }, color: '#888' },
+        border: { display: false }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
